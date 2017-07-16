@@ -66,7 +66,7 @@ static NSString *kUserDefaultsGlueMotorVolumeKey = @"GlueMotorCore_GlueMotorVolu
         
         // start AudioQueue
         [self initAudioSession];
-        if ([self isAudioRouteHeadphones] == YES) {
+        if ([self isHeadphones] == YES) {
             [self startAudioQueue];
         }
         
@@ -93,7 +93,7 @@ static NSString *kUserDefaultsGlueMotorVolumeKey = @"GlueMotorCore_GlueMotorVolu
 }
 
 - (void)setPWMVolume:(float)volume {
-    if ([self isAudioQueueRunning] && [self isAudioRouteHeadphones]) {
+    if ([self isAudioQueueRunning] && [self isHeadphones]) {
         if ([self getAudioVolume] != volume) {
             [self setAudioVolume:volume];
         }
@@ -117,7 +117,7 @@ static NSString *kUserDefaultsGlueMotorVolumeKey = @"GlueMotorCore_GlueMotorVolu
 
 - (void)applicationDidBecomeActive:(NSNotification *)notification {
     NSLog(@"applicationDidBecomeActive");
-    if ([self isAudioRouteHeadphones] == YES) {
+    if ([self isHeadphones] == YES) {
         [self stopAudioQueue];
         [self startAudioQueue];
     }
@@ -171,9 +171,9 @@ void audioSessionPropertyListenerCallback(void                   *inUserData,
         if (routeChangeDictRef != nil) {
             CFDictionaryRef routeDictRef = CFDictionaryGetValue(routeChangeDictRef, kAudioSession_AudioRouteChangeKey_CurrentRouteDescription);
             if (routeDictRef != nil) {
-                BOOL result = [self isAudioRouteHeadphones:routeDictRef];
+                //BOOL result = [self isAudioRouteHeadphones:routeDictRef];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    if (result == YES) {
+                    if ([self isHeadphones] == YES) {
                         // connected to headset
                         [self startAudioQueue];
                     }
@@ -188,49 +188,44 @@ void audioSessionPropertyListenerCallback(void                   *inUserData,
     else if (inPropertyID == kAudioSessionProperty_CurrentHardwareOutputVolume) {
         Float32 volume = *((Float32 *)inPropertyValue);
         NSLog(@"volume=%f", (float)volume);
-        if ([self isAudioQueueRunning] && [self isAudioRouteHeadphones]) {
+        if ([self isAudioQueueRunning] && [self isHeadphones]) {
             [self saveGlueMotorVolume];
         }
     }
 }
 
-- (BOOL)isAudioRouteHeadphones {
-    BOOL result = NO;
-    CFDictionaryRef routeDictRef = nil;
-    UInt32 size = sizeof(routeDictRef);
-    OSStatus status = AudioSessionGetProperty(kAudioSessionProperty_AudioRouteDescription, &size, &routeDictRef);
-    if (status == kAudioSessionNoError && routeDictRef != nil) {
-        result = [self isAudioRouteHeadphones:routeDictRef];
+- (BOOL)isHeadphones {
+    AVAudioSessionRouteDescription* route = [[AVAudioSession sharedInstance] currentRoute];
+    for (AVAudioSessionPortDescription* desc in [route outputs]) {
+        if ([[desc portType] isEqualToString:AVAudioSessionPortHeadphones])
+            return YES;
     }
-    return result;
-}
-
-- (BOOL)isAudioRouteHeadphones:(CFDictionaryRef)routeDictRef {
-    BOOL result = NO;
-    CFArrayRef outputRoutesRef = CFDictionaryGetValue(routeDictRef, kAudioSession_AudioRouteKey_Outputs);
-    if (outputRoutesRef != nil && CFArrayGetCount(outputRoutesRef) > 0) {
-        CFDictionaryRef outputDictRef = CFArrayGetValueAtIndex(outputRoutesRef, 0);
-        if (outputDictRef != nil) {
-            CFStringRef routeRef = CFDictionaryGetValue(outputDictRef, kAudioSession_AudioRouteKey_Type);
-            if (routeRef != nil && CFStringCompare(routeRef, kAudioSessionOutputRoute_Headphones, 0) == kCFCompareEqualTo) {
-                result = YES;
-            }
-        }
-    }
-    NSLog(@"Is AudioRoute headphone? %d", result);
-    return result;
+    return NO;
 }
 
 #pragma mark - Volume Control
 
 - (float)getAudioVolume {
-    MPMusicPlayerController *mp = [MPMusicPlayerController applicationMusicPlayer];
-    return mp.volume;
+    //MPMusicPlayerController *mp = [MPMusicPlayerController applicationMusicPlayer];
+    return [[AVAudioSession sharedInstance] outputVolume];
 }
 
 - (void)setAudioVolume:(float)volume {
-    MPMusicPlayerController *mp = [MPMusicPlayerController applicationMusicPlayer];
-    mp.volume = volume;
+    //MPMusicPlayerController *mp = [MPMusicPlayerController applicationMusicPlayer];
+    //mp.volume = volume;
+    
+    MPVolumeView* volumeView = [[MPVolumeView alloc] init];
+    
+    //find the volumeSlider
+    UISlider* volumeViewSlider = nil;
+    for (UIView *view in [volumeView subviews]){
+        if ([view.class.description isEqualToString:@"MPVolumeSlider"]){
+            volumeViewSlider = (UISlider*)view;
+            break;
+        }
+    }
+    [volumeViewSlider setValue:volume animated:YES];
+    [volumeViewSlider sendActionsForControlEvents:UIControlEventTouchUpInside];
 }
 
 - (void)saveOriginalVolume {
@@ -292,7 +287,7 @@ void audioSessionPropertyListenerCallback(void                   *inUserData,
     }
     
     if (_audioQueue == NULL) {
-        if ([self isAudioRouteHeadphones]) {
+        if ([self isHeadphones]) {
             [self saveOriginalVolume];
             [self restoreGlueMotorVolume];
         }
@@ -302,7 +297,7 @@ void audioSessionPropertyListenerCallback(void                   *inUserData,
 
 - (void)stopAudioQueue {
     if (_audioQueue != NULL) {
-        if ([self isAudioRouteHeadphones]) {
+        if ([self isHeadphones]) {
             [self restoreOriginalVolume];
         }
         [self cleanupAudioQueue];
