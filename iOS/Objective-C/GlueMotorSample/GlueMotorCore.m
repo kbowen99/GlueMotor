@@ -9,7 +9,8 @@
 
 #import "GlueMotorCore.h"
 #import <AudioToolbox/AudioToolbox.h>
-#import <AVFoundation/AVAudioSession.h>
+#import <AVFoundation/AVFoundation.h>
+//#import <AVFoundation/AVAudioSession.h>
 #import <MediaPlayer/MediaPlayer.h>
 
 #define SUPPORTED_SERVO_COUNT       2
@@ -140,21 +141,22 @@ static NSString *kUserDefaultsGlueMotorVolumeKey = @"GlueMotorCore_GlueMotorVolu
 - (void)initAudioSession {
     AVAudioSession *as = [AVAudioSession sharedInstance];
     NSError *err;
-    [as setPreferredHardwareSampleRate:AUDIO_SAMPLING_RATE error:&err];
+    //[as setPreferredHardwareSampleRate:AUDIO_SAMPLING_RATE error:&err];
+    [as setPreferredSampleRate:AUDIO_SAMPLING_RATE error:&err];
     NSTimeInterval duration = AUDIO_BUFFER_LENGTH_IN_SEC;
     [as setPreferredIOBufferDuration:duration error:&err];
     [as setCategory:AVAudioSessionCategoryPlayback error:&err];
     [as setActive:YES error:&err];
     
-    OSStatus status;
-    status = AudioSessionAddPropertyListener(kAudioSessionProperty_AudioRouteChange, audioSessionPropertyListenerCallback, (__bridge void*)self);
-    status = AudioSessionAddPropertyListener(kAudioSessionProperty_CurrentHardwareOutputVolume, audioSessionPropertyListenerCallback, (__bridge void*)self);
+    //OSStatus status;
+    //status = AudioSessionAddPropertyListener(kAudioSessionProperty_AudioRouteChange, audioSessionPropertyListenerCallback, (__bridge void*)self);
+    //status = AudioSessionAddPropertyListener(kAudioSessionProperty_CurrentHardwareOutputVolume, audioSessionPropertyListenerCallback, (__bridge void*)self);
 }
 
 - (void)cleanupAudioSession {
-    OSStatus status;
-    status = AudioSessionRemovePropertyListenerWithUserData(kAudioSessionProperty_AudioRouteChange, audioSessionPropertyListenerCallback, (__bridge void*)self);
-    status = AudioSessionRemovePropertyListenerWithUserData(kAudioSessionProperty_CurrentHardwareOutputVolume, audioSessionPropertyListenerCallback, (__bridge void*)self);
+    //OSStatus status;
+    //status = AudioSessionRemovePropertyListenerWithUserData(kAudioSessionProperty_AudioRouteChange, audioSessionPropertyListenerCallback, (__bridge void*)self);
+    //status = AudioSessionRemovePropertyListenerWithUserData(kAudioSessionProperty_CurrentHardwareOutputVolume, audioSessionPropertyListenerCallback, (__bridge void*)self);
     AVAudioSession *as = [AVAudioSession sharedInstance];
     NSError *err;
     [as setActive:NO error:&err];
@@ -169,8 +171,8 @@ void audioSessionPropertyListenerCallback(void                   *inUserData,
     if (inPropertyID == kAudioSessionProperty_AudioRouteChange) {
         CFDictionaryRef routeChangeDictRef = (CFDictionaryRef)inPropertyValue;
         if (routeChangeDictRef != nil) {
-            CFDictionaryRef routeDictRef = CFDictionaryGetValue(routeChangeDictRef, kAudioSession_AudioRouteChangeKey_CurrentRouteDescription);
-            if (routeDictRef != nil) {
+            //CFDictionaryRef routeDictRef = CFDictionaryGetValue(routeChangeDictRef, kAudioSession_AudioRouteChangeKey_CurrentRouteDescription);
+            //if (routeDictRef != nil) {
                 //BOOL result = [self isAudioRouteHeadphones:routeDictRef];
                 dispatch_async(dispatch_get_main_queue(), ^{
                     if ([self isHeadphones] == YES) {
@@ -182,7 +184,7 @@ void audioSessionPropertyListenerCallback(void                   *inUserData,
                         [self stopAudioQueue];
                     }
                 });
-            }
+            //}
         }
     }
     else if (inPropertyID == kAudioSessionProperty_CurrentHardwareOutputVolume) {
